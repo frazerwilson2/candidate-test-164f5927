@@ -37,9 +37,6 @@ export const UserAvatar = () => {
     setDropdownOpen(false);
   };
 
-  console.log(statusLabels, profile.workStatus);
-  
-
   return (
     <div className="relative">
       <div
