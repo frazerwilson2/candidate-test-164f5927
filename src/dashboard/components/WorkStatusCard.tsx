@@ -1,8 +1,9 @@
 import { useSelector, useDispatch } from "react-redux";
-import toast from "react-hot-toast";
 import { DashboardRootState, DashboardDispatch } from "../store";
 import { updateWorkStatus } from "../store/userSlice";
-import { AVAILABILITY_MESSAGE_TYPE, WorkStatus } from "../../shared/types";
+import { WorkStatus } from "../../shared/types";
+import { useCallback } from "react";
+import { postAvailabilityEvent, useAvailabilityListener } from "../../shared/events/availabilityEvent";
 
 export const WorkStatusCard = ({ className = "" }: { className?: string }) => {
   const { profile } = useSelector((state: DashboardRootState) => state.user);
@@ -14,18 +15,15 @@ export const WorkStatusCard = ({ className = "" }: { className?: string }) => {
     not_looking: "Don't want to hear about work",
   };
 
+  useAvailabilityListener(useCallback((incomingAvailability: WorkStatus) => {
+    if (incomingAvailability === profile.workStatus) return; // Avoid unnecessary updates
+    dispatch(updateWorkStatus(incomingAvailability));
+  }, [profile.workStatus, dispatch]));
+
   const handleStatusChange = (newStatus:WorkStatus) => {
     // Post event to notify other micro-frontends
-    window.postMessage({
-      type: AVAILABILITY_MESSAGE_TYPE,
-      payload: { availability: newStatus }
-    }, window.location.origin);
-
+    postAvailabilityEvent(newStatus);
     dispatch(updateWorkStatus(newStatus));
-    toast.success(`Availability updated to: ${statusLabels[newStatus]}`, {
-      duration: 3000,
-      position: "top-right",
-    });
   };
 
   return (

@@ -1,49 +1,44 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { NavRootState, NavDispatch } from "../store";
 import { updateWorkStatus } from "../store/userSlice";
-import { AVAILABILITY_MESSAGE_TYPE, WorkStatus } from "../../shared/types";
+import { WorkStatus } from "../../shared/types";
+import { postAvailabilityEvent, statusLabels, useAvailabilityListener } from "../../shared/events/availabilityEvent";
 
 export const UserAvatar = () => {
   const { profile } = useSelector((state: NavRootState) => state.user);
   const dispatch = useDispatch<NavDispatch>();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-      useEffect(() => {
-        const handleMessage = (event: MessageEvent) => {
-          if (event.origin !== window.location.origin) {
-            console.warn('Received message from unknown origin:', event.origin);
-            return;
-          }
+  useAvailabilityListener(
+    useCallback((incomingAvailability:WorkStatus) => {
+      if(incomingAvailability === profile.workStatus) return; // Avoid unnecessary updates
+      dispatch(updateWorkStatus(incomingAvailability));
+  }, [profile.workStatus, dispatch]));
 
-          if (event.data && event.data.type === AVAILABILITY_MESSAGE_TYPE) {
-            const incomingAvailability = event.data.payload.availability;
-            // Only dispatch if the incoming availability is different to avoid unnecessary re-renders
-            if (incomingAvailability !== profile.workStatus) {
-              dispatch(updateWorkStatus(incomingAvailability));
-            }
-          }
-        };
-
-        // Add event listener for messages from other micro-frontends
-        window.addEventListener('message', handleMessage);
-
-        // Cleanup the event listener on component unmount
-        return () => {
-          window.removeEventListener('message', handleMessage);
-        };
-  }, [profile.workStatus]);
-
-  const statusLabels: Record<WorkStatus, string> = {
-    looking: "Currently looking for work",
-    passive: "Passively looking for work",
-    not_looking: "Don't want to hear about work",
-  };
+  // Close dropdown when clicking outside
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleClickOutside = (event:Event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handleStatusChange = (status: WorkStatus) => {
+    // Post event to notify other micro-frontends
+    postAvailabilityEvent(status);
     dispatch(updateWorkStatus(status));
     setDropdownOpen(false);
   };
+
+  console.log(statusLabels, profile.workStatus);
+  
 
   return (
     <div className="relative">
@@ -59,13 +54,13 @@ export const UserAvatar = () => {
         <div className="flex flex-col">
           <span className="font-medium text-sm">{profile.name}</span>
           <span className="text-xs text-gray-600">
-            {statusLabels[profile.workStatus]}
+           {statusLabels[profile.workStatus]}
           </span>
         </div>
       </div>
 
       {dropdownOpen && (
-        <div className="absolute top-full mt-2 right-0 bg-white shadow-lg rounded-md p-4 w-64 z-10 border border-gray-200">
+        <div className="absolute mt-2 bottom-[60px] bg-white shadow-lg rounded-md p-4 w-64 z-10 border border-gray-200" ref={dropdownRef}>
           <h4 className="text-sm font-medium text-gray-700 mb-2">
             Update your work status:
           </h4>
