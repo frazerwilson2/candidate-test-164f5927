@@ -6,3 +6,5 @@ export interface UserProfile {
   avatar: string;
   workStatus: WorkStatus;
 }
+
+export const AVAILABILITY_MESSAGE_TYPE = 'AVAILABILITY_MESSAGE_TYPE';

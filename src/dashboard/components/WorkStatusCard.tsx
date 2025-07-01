@@ -1,7 +1,8 @@
 import { useSelector, useDispatch } from "react-redux";
+import toast from "react-hot-toast";
 import { DashboardRootState, DashboardDispatch } from "../store";
 import { updateWorkStatus } from "../store/userSlice";
-import { WorkStatus } from "../../shared/types";
+import { AVAILABILITY_MESSAGE_TYPE, WorkStatus } from "../../shared/types";
 
 export const WorkStatusCard = ({ className = "" }: { className?: string }) => {
   const { profile } = useSelector((state: DashboardRootState) => state.user);
@@ -13,8 +14,18 @@ export const WorkStatusCard = ({ className = "" }: { className?: string }) => {
     not_looking: "Don't want to hear about work",
   };
 
-  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    dispatch(updateWorkStatus(e.target.value as WorkStatus));
+  const handleStatusChange = (newStatus:WorkStatus) => {
+    // Post event to notify other micro-frontends
+    window.postMessage({
+      type: AVAILABILITY_MESSAGE_TYPE,
+      payload: { availability: newStatus }
+    }, window.location.origin);
+
+    dispatch(updateWorkStatus(newStatus));
+    toast.success(`Availability updated to: ${statusLabels[newStatus]}`, {
+      duration: 3000,
+      position: "top-right",
+    });
   };
 
   return (
@@ -23,20 +34,26 @@ export const WorkStatusCard = ({ className = "" }: { className?: string }) => {
         Your Work Status
       </h3>
       <div className="py-2">
-        <p>Update your availability for new opportunities:</p>
-        <select
-          value={profile.workStatus}
-          onChange={handleStatusChange}
-          className="w-full p-3 border border-gray-200 rounded-md my-4 text-base"
-        >
-          <option value="looking">Currently looking for work</option>
-          <option value="passive">Passively looking for work</option>
-          <option value="not_looking">Don't want to hear about work</option>
-        </select>
-        <p className="mt-4 text-gray-500">
-          Your current status:{" "}
-          <strong>{statusLabels[profile.workStatus]}</strong>
-        </p>
+        <p className="mb-4">Update your availability for new opportunities:</p>
+        <div className="grid gap-3 mb-6">
+        {Object.keys(statusLabels).map((option) => (
+          <button
+            key={statusLabels[option as WorkStatus]}
+            onClick={() => handleStatusChange(option as WorkStatus)}
+            disabled={profile.workStatus === option}
+            className={`
+              py-3 px-4 rounded-lg text-sm font-medium transition-all duration-200 ease-in-out
+              ${profile.workStatus === option
+                ? 'active text-white shadow-md transform scale-105'
+                : 'hover:shadow-sm'
+              }
+              focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50
+            `}
+          >
+            {statusLabels[option as WorkStatus]}
+          </button>
+        ))}
+        </div>
       </div>
     </div>
   );

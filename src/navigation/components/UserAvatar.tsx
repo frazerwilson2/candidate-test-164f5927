@@ -1,13 +1,38 @@
+import { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { NavRootState, NavDispatch } from "../store";
 import { updateWorkStatus } from "../store/userSlice";
-import { WorkStatus } from "../../shared/types";
-import { useState } from "react";
+import { AVAILABILITY_MESSAGE_TYPE, WorkStatus } from "../../shared/types";
 
 export const UserAvatar = () => {
   const { profile } = useSelector((state: NavRootState) => state.user);
   const dispatch = useDispatch<NavDispatch>();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+
+      useEffect(() => {
+        const handleMessage = (event: MessageEvent) => {
+          if (event.origin !== window.location.origin) {
+            console.warn('Received message from unknown origin:', event.origin);
+            return;
+          }
+
+          if (event.data && event.data.type === AVAILABILITY_MESSAGE_TYPE) {
+            const incomingAvailability = event.data.payload.availability;
+            // Only dispatch if the incoming availability is different to avoid unnecessary re-renders
+            if (incomingAvailability !== profile.workStatus) {
+              dispatch(updateWorkStatus(incomingAvailability));
+            }
+          }
+        };
+
+        // Add event listener for messages from other micro-frontends
+        window.addEventListener('message', handleMessage);
+
+        // Cleanup the event listener on component unmount
+        return () => {
+          window.removeEventListener('message', handleMessage);
+        };
+  }, [profile.workStatus]);
 
   const statusLabels: Record<WorkStatus, string> = {
     looking: "Currently looking for work",
